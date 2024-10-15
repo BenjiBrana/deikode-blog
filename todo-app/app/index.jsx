@@ -1,8 +1,70 @@
 import React, { useState, useEffect } from 'react';
-import { SafeAreaView, Button, Modal, StyleSheet, View, Text } from 'react-native';
+import { SafeAreaView, Text, StyleSheet, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
+import * as Notifications from 'expo-notifications';
+
+// Demander les permissions de notification
+async function requestPermissions() {
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Permission de notification non accordée');
+    }
+  }
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+    });
+  }
+}
+
+// Fonction pour planifier les notifications
+async function scheduleDailyNotifications(tasks) {
+  const taskTitles = tasks.map(task => task.title).join(', ');
+
+  // Notification pour 7h du matin
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Tâches du matin",
+      body: `Voici les tâches à faire : ${taskTitles}`,
+    },
+    trigger: {
+      hour: 7,
+      minute: 0,
+      repeats: true,
+    },
+  });
+
+  // Notification pour 13h30 de l'après-midi
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Tâches de l'après-midi",
+      body: `Voici les tâches à faire : ${taskTitles}`,
+    },
+    trigger: {
+      hour: 13,
+      minute: 30,
+      repeats: true,
+    },
+  });
+  // Notification pour 17h00 de l'après-midi
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Tâches de la soirée",
+      body: `Voici les tâches à faire : ${taskTitles}`,
+    },
+    trigger: {
+      hour: 17,
+      minute: 0,
+      repeats: true,
+    },
+  });
+}
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
@@ -77,7 +139,13 @@ export default function App() {
 
   useEffect(() => {
     loadTasks();  // Charger les tâches au démarrage
+    requestPermissions();  // Demander les permissions de notification
   }, []);
+
+  useEffect(() => {
+    // Planifier les notifications avec la liste des tâches
+    scheduleDailyNotifications(tasks);
+  }, [tasks]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -90,16 +158,6 @@ export default function App() {
         editTask={editTask}
         toggleTaskCompletion={toggleTaskCompletion}
       />
-
-      {selectedTask && (
-        <Modal visible={modalVisible} animationType="slide" transparent={true}>
-          <View style={styles.modalView}>
-            <Text style={styles.modalText}>Détails de la tâche :</Text>
-            <Text style={styles.modalText}>{selectedTask.title}</Text>
-            <Button title="Fermer" onPress={() => setModalVisible(false)} />
-          </View>
-        </Modal>
-      )}
     </SafeAreaView>
   );
 }
@@ -114,15 +172,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
-  },
-  modalView: {
-    marginTop: '50%',
-    backgroundColor: 'white',
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalText: {
-    fontSize: 18,
   },
 });
